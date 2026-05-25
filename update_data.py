@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-美股驾驶舱数据更新脚本（最终修复版 - 涨跌幅精准 + 派发日阈值）
+美股驾驶舱数据更新脚本（最终修正版）
+- 派发日：成交量放大20% + 收盘价下跌 >0.1%
+- 板块涨跌幅：使用调整收盘价，日线数据
 """
 
 import json
@@ -66,8 +68,8 @@ def get_sector_ytd():
     results.sort(key=lambda x: x["ytd"], reverse=True)
     return results
 
-# ---------- 3. 派发日（修正：成交量需放大10%以上）----------
-def get_distribution_history(days_back=60, volume_threshold=1.10):
+# ---------- 3. 派发日（严格条件）----------
+def get_distribution_history(days_back=60, volume_threshold=1.20, price_drop_pct=0.001):
     spy = yf.download("SPY", period="3mo", interval="1d", progress=False, auto_adjust=False)
     if spy.empty:
         return []
@@ -79,7 +81,10 @@ def get_distribution_history(days_back=60, volume_threshold=1.10):
     dates = spy.index.tolist()
     result = []
     for i in range(1, len(dates)):
-        is_dist = 1 if (closes[i] < closes[i-1] and volumes[i] > volumes[i-1] * volume_threshold) else 0
+        price_drop = (closes[i-1] - closes[i]) / closes[i-1]
+        cond1 = price_drop > price_drop_pct
+        cond2 = volumes[i] > volumes[i-1] * volume_threshold
+        is_dist = 1 if (cond1 and cond2) else 0
         result.append({
             "date": dates[i].strftime("%Y-%m-%d"),
             "is_distribution": is_dist
@@ -112,7 +117,7 @@ def get_xly_xlp_history(days_back=60):
             prev_ratio = ratio
     return ratios[-days_back:]
 
-# ---------- 5. Finviz 板块（修复涨跌幅计算）----------
+# ---------- 5. Finviz 板块（精确涨跌幅）----------
 def get_finviz_sectors():
     sector_etfs = {
         "科技": "XLK", "金融": "XLF", "医疗保健": "XLV", "可选消费": "XLY",
@@ -269,7 +274,7 @@ def get_latest_snapshot(history):
     }
 
 def main():
-    print("🚀 开始更新美股驾驶舱数据（修复版）...")
+    print("🚀 开始更新美股驾驶舱数据（最终修正版）...")
     history = get_all_history()
     snapshot = get_latest_snapshot(history)
     sector_ytd = get_sector_ytd()
