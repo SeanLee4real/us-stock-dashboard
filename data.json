@@ -1,5 +1,5 @@
 {
-  "updateTime": "2026-05-25 02:52:28",
+  "updateTime": "2026-05-25 04:39:40",
   "breadth": {
     "pct_above_50": 44.8,
     "pct_above_200": 45.8
@@ -52,8 +52,8 @@
   ],
   "distributionDays": 0,
   "xlyXlp": {
-    "xly_change": 0.4,
-    "xlp_change": 0.17
+    "ratio": 1.4054,
+    "change_pct": 0.24
   },
   "finvizSectors": [
     {
