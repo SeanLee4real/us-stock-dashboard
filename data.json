@@ -1,0 +1,193 @@
+{
+  "updateTime": "2026-05-25 02:40:53",
+  "breadth": {
+    "pct_above_50": 44.8,
+    "pct_above_200": 45.8
+  },
+  "sectorYtd": [
+    {
+      "name": "XLE",
+      "ytd": 31.17
+    },
+    {
+      "name": "XLK",
+      "ytd": 25.17
+    },
+    {
+      "name": "XLRE",
+      "ytd": 11.09
+    },
+    {
+      "name": "XLP",
+      "ytd": 9.77
+    },
+    {
+      "name": "XLB",
+      "ytd": 9.53
+    },
+    {
+      "name": "XLI",
+      "ytd": 9.03
+    },
+    {
+      "name": "XLU",
+      "ytd": 5.76
+    },
+    {
+      "name": "XLY",
+      "ytd": 0.9
+    },
+    {
+      "name": "XLC",
+      "ytd": -0.92
+    },
+    {
+      "name": "XLV",
+      "ytd": -3.22
+    },
+    {
+      "name": "XLF",
+      "ytd": -4.96
+    }
+  ],
+  "distributionDays": 0,
+  "xlyXlp": {
+    "xly_change": 0.4,
+    "xlp_change": 0.17
+  },
+  "finvizSectors": [
+    {
+      "name": "科技",
+      "stocks": "779",
+      "mktCap": "31.1T",
+      "div": "0.54%",
+      "pe": "38.6",
+      "fwdPe": "-",
+      "peg": "1.19",
+      "change": "+1.00%",
+      "volume": "11M"
+    },
+    {
+      "name": "金融",
+      "stocks": "1092",
+      "mktCap": "13.9T",
+      "div": "1.97%",
+      "pe": "16.0",
+      "fwdPe": "-",
+      "peg": "1.38",
+      "change": "+0.41%",
+      "volume": "23M"
+    },
+    {
+      "name": "医疗保健",
+      "stocks": "1075",
+      "mktCap": "8.33T",
+      "div": "1.60%",
+      "pe": "28.8",
+      "fwdPe": "-",
+      "peg": "2.02",
+      "change": "+1.17%",
+      "volume": "7M"
+    },
+    {
+      "name": "可选消费",
+      "stocks": "545",
+      "mktCap": "9.36T",
+      "div": "0.78%",
+      "pe": "30.4",
+      "fwdPe": "-",
+      "peg": "1.56",
+      "change": "+0.40%",
+      "volume": "5M"
+    },
+    {
+      "name": "必需消费",
+      "stocks": "246",
+      "mktCap": "4.49T",
+      "div": "2.37%",
+      "pe": "26.9",
+      "fwdPe": "-",
+      "peg": "2.94",
+      "change": "+0.17%",
+      "volume": "8M"
+    },
+    {
+      "name": "工业",
+      "stocks": "690",
+      "mktCap": "7.59T",
+      "div": "1.08%",
+      "pe": "32.0",
+      "fwdPe": "-",
+      "peg": "1.67",
+      "change": "+0.73%",
+      "volume": "7M"
+    },
+    {
+      "name": "能源",
+      "stocks": "256",
+      "mktCap": "4.74T",
+      "div": "3.43%",
+      "pe": "19.8",
+      "fwdPe": "-",
+      "peg": "1.39",
+      "change": "+0.61%",
+      "volume": "42M"
+    },
+    {
+      "name": "原材料",
+      "stocks": "283",
+      "mktCap": "2.88T",
+      "div": "1.94%",
+      "pe": "22.7",
+      "fwdPe": "-",
+      "peg": "1.24",
+      "change": "+0.54%",
+      "volume": "7M"
+    },
+    {
+      "name": "公用事业",
+      "stocks": "109",
+      "mktCap": "1.96T",
+      "div": "2.93%",
+      "pe": "21.0",
+      "fwdPe": "-",
+      "peg": "1.79",
+      "change": "+0.78%",
+      "volume": "15M"
+    },
+    {
+      "name": "房地产",
+      "stocks": "255",
+      "mktCap": "1.80T",
+      "div": "3.72%",
+      "pe": "32.7",
+      "fwdPe": "-",
+      "peg": "3.34",
+      "change": "+0.13%",
+      "volume": "4M"
+    },
+    {
+      "name": "通讯服务",
+      "stocks": "263",
+      "mktCap": "13.7T",
+      "div": "0.50%",
+      "pe": "39.1",
+      "fwdPe": "-",
+      "peg": "2.23",
+      "change": "-0.55%",
+      "volume": "4M"
+    }
+  ],
+  "bubble": {
+    "marginDebt": {
+      "value": "1,304,281",
+      "yoy": "+53.34%",
+      "date": "2026-04-01"
+    },
+    "putCall": {
+      "ratio": "0.55",
+      "ma20": "0.51",
+      "date": "2026-05-22"
+    }
+  }
+}
