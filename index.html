@@ -3,146 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>美股驾驶舱·六维仪表盘</title>
+    <title>美股驾驶舱 · 六维仪表盘（历史图表）</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: #0b0f1a;
-            color: #e8edf5;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            padding: 20px;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            flex-wrap: wrap;
-            margin-bottom: 24px;
-        }
-        h1 {
-            font-size: 1.8rem;
-            background: linear-gradient(135deg, #fff, #3b82f6);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .update-badge {
-            background: #131a2b;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            color: #9aa4b8;
-        }
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-            gap: 20px;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-        .card {
-            background: rgba(19, 26, 43, 0.85);
-            backdrop-filter: blur(2px);
-            border: 1px solid #1e2a3f;
-            border-radius: 20px;
-            padding: 18px;
-            transition: 0.2s;
-        }
-        .card:hover {
-            border-color: #3b82f6;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-        }
-        .card-full {
-            grid-column: 1 / -1;
-        }
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-            background: rgba(59,130,246,0.2);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.4rem;
-        }
-        h3 {
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-        .sub {
-            font-size: 0.7rem;
-            color: #9aa4b8;
-        }
-        .metric-grid {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin: 12px 0;
-        }
-        .metric-box {
-            flex: 1;
-            background: rgba(0,0,0,0.2);
-            border-radius: 14px;
-            padding: 12px;
-            text-align: center;
-        }
-        .metric-label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: #9aa4b8;
-        }
-        .metric-value {
-            font-size: 1.6rem;
-            font-weight: 700;
-            font-family: monospace;
-        }
-        .alert {
-            background: rgba(239,68,68,0.1);
-            border-left: 4px solid #ef4444;
-            padding: 10px 12px;
-            border-radius: 12px;
-            margin: 12px 0;
-            font-size: 0.8rem;
-        }
-        .sector-table {
-            width: 100%;
-            font-size: 0.7rem;
-            border-collapse: collapse;
-        }
-        .sector-table th, .sector-table td {
-            padding: 8px 4px;
-            text-align: left;
-            border-bottom: 1px solid #1e2a3f;
-        }
+        /* 与之前相同的样式，略，需保留 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0b0f1a; color: #e8edf5; font-family: 'Inter', sans-serif; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 24px; }
+        h1 { font-size: 1.8rem; background: linear-gradient(135deg, #fff, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .update-badge { background: #131a2b; padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; color: #9aa4b8; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px; max-width: 1600px; margin: 0 auto; }
+        .card { background: rgba(19, 26, 43, 0.85); backdrop-filter: blur(2px); border: 1px solid #1e2a3f; border-radius: 20px; padding: 18px; transition: 0.2s; }
+        .card-full { grid-column: 1 / -1; }
+        .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .icon { width: 40px; height: 40px; background: rgba(59,130,246,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+        h3 { font-weight: 600; font-size: 1.1rem; }
+        .sub { font-size: 0.7rem; color: #9aa4b8; }
+        .metric-grid { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+        .metric-box { flex: 1; background: rgba(0,0,0,0.2); border-radius: 14px; padding: 12px; text-align: center; }
+        .metric-label { font-size: 0.7rem; text-transform: uppercase; color: #9aa4b8; }
+        .metric-value { font-size: 1.6rem; font-weight: 700; font-family: monospace; }
+        .alert { background: rgba(239,68,68,0.1); border-left: 4px solid #ef4444; padding: 10px 12px; border-radius: 12px; margin: 12px 0; font-size: 0.8rem; }
+        .sector-table { width: 100%; font-size: 0.7rem; border-collapse: collapse; }
+        .sector-table th, .sector-table td { padding: 8px 4px; text-align: left; border-bottom: 1px solid #1e2a3f; }
         .positive { color: #10b981; }
         .negative { color: #ef4444; }
         .neutral { color: #f59e0b; }
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 0.7rem;
-            color: #5f6c84;
-        }
-        @media (max-width: 700px) {
-            .dashboard { grid-template-columns: 1fr; }
-        }
+        .chart-container { width: 100%; height: 300px; margin-top: 16px; }
+        .footer { text-align: center; margin-top: 30px; font-size: 0.7rem; color: #5f6c84; }
+        @media (max-width: 700px) { .dashboard { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 <div class="header">
     <div>
         <h1>📊 美股驾驶舱 · 六维仪表盘</h1>
-        <div>每日自动更新 | 本地爬虫 + JSON 数据</div>
+        <div>每日自动更新 | 历史图表可拖拽</div>
     </div>
     <div class="update-badge" id="last-update">加载中...</div>
 </div>
@@ -151,18 +48,22 @@
     <!-- 动态填充 -->
 </div>
 <div class="footer">
-    ⚡ 数据来源：Yahoo Finance (yfinance) | 每日自动刷新 | 宽度为估算值
+    ⚡ 数据来源：MacroMicro, Yahoo Finance | 宽度和 Put/Call 来自 MacroMicro 官方数据
 </div>
 
 <script>
+    let fullData = null;
+
     async function loadData() {
         try {
             const res = await fetch('./data.json?t=' + Date.now());
             const data = await res.json();
             document.getElementById('last-update').innerHTML = `📅 数据时间：${data.updateTime}`;
+            fullData = data;
             renderDashboard(data);
+            renderCharts(data.history);
         } catch(e) {
-            document.getElementById('dashboard').innerHTML = '<div class="card card-full" style="text-align:center;color:#ef4444;">❌ 无法加载 data.json，请确认文件存在或等待 Actions 运行。</div>';
+            document.getElementById('dashboard').innerHTML = '<div class="card card-full" style="text-align:center;color:#ef4444;">❌ 无法加载 data.json</div>';
         }
     }
 
@@ -170,16 +71,16 @@
         const container = document.getElementById('dashboard');
         container.innerHTML = '';
 
-        // 1. 市场宽度
-        const width50 = d.breadth.pct_above_50 ?? '?';
-        const width200 = d.breadth.pct_above_200 ?? '?';
-        container.appendChild(createCard('1️⃣ 市场宽度', '标普500成分股占比 · 巨头集中风险', `
+        // 1. 市场宽度卡片（带图表）
+        const breadth = d.snapshot.breadth;
+        container.appendChild(createCardWithChart('1️⃣ 市场宽度', '标普500成分股占比 · 历史趋势', `
             <div class="metric-grid">
-                <div class="metric-box"><div class="metric-label">>50日均线</div><div class="metric-value ${width50 < 60 ? 'neutral' : 'positive'}">${width50}%</div></div>
-                <div class="metric-box"><div class="metric-label">>200日均线</div><div class="metric-value ${width200 < 60 ? 'neutral' : 'positive'}">${width200}%</div></div>
+                <div class="metric-box"><div class="metric-label">>50日均线</div><div class="metric-value">${breadth.above50 ?? '?'}%</div></div>
+                <div class="metric-box"><div class="metric-label">>200日均线</div><div class="metric-value">${breadth.above200 ?? '?'}%</div></div>
             </div>
-            <div class="alert">⚠️ 宽度仍处低位，指数主要由巨头推动，中小盘参与度不足。</div>
-        `));
+            <div class="alert">⚠️ 宽度低于60%时市场广度较差，指数由少数巨头推动。</div>
+            <div id="chart-breadth" class="chart-container"></div>
+        `, 'breadth'));
 
         // 2. 板块YTD
         let ytdHtml = `<table class="sector-table"><tr><th>板块</th><th>YTD</th></tr>`;
@@ -187,66 +88,149 @@
             let cls = s.ytd > 0 ? 'positive' : 'negative';
             ytdHtml += `<tr><td>${s.name}</td><td class="${cls}">${s.ytd > 0 ? '+' : ''}${s.ytd}%</td></tr>`;
         }
-        ytdHtml += `</table><div class="sub" style="margin-top:8px;">💡 科技、能源领涨，房地产滞涨</div>`;
+        ytdHtml += `</table><div class="sub">💡 科技、能源领涨，房地产滞涨</div>`;
         container.appendChild(createCard('2️⃣ 板块累计回报 (YTD)', 'Sector ETFs 年初至今表现', ytdHtml));
 
         // 3. 派发日
-        let distColor = d.distributionDays >= 5 ? 'negative' : (d.distributionDays >= 3 ? 'neutral' : 'positive');
-        container.appendChild(createCard('3️⃣ O\'Neil 派发日', '过去15天内机构出货信号', `
-            <div class="metric-grid"><div class="metric-box"><div class="metric-label">派发日计数</div><div class="metric-value ${distColor}">${d.distributionDays} 天</div></div></div>
-            <div class="alert ${d.distributionDays>=5 ? 'alert' : ''}">${d.distributionDays < 5 ? '✅ 派发日低于警戒线，机构尚未大规模出货。' : '⚠️ 派发日接近/超过5天，注意回调风险。'}</div>
-        `));
+        const distDays = d.snapshot.distributionDays;
+        let distColor = distDays >= 5 ? 'negative' : (distDays >= 3 ? 'neutral' : 'positive');
+        container.appendChild(createCardWithChart('3️⃣ O\'Neil 派发日', '过去15天内机构出货信号', `
+            <div class="metric-grid"><div class="metric-box"><div class="metric-label">派发日计数</div><div class="metric-value ${distColor}">${distDays} 天</div></div></div>
+            <div class="alert">${distDays < 5 ? '✅ 派发日低于警戒线，机构尚未大规模出货。' : '⚠️ 派发日接近/超过5天，注意回调风险。'}</div>
+            <div id="chart-distribution" class="chart-container"></div>
+        `, 'distribution'));
 
         // 4. XLY/XLP 比率
-        const ratio = d.xlyXlp.ratio ?? 1.0;
-        const changePct = d.xlyXlp.change_pct ?? 0.0;
-        const ratioColor = changePct >= 0 ? 'positive' : 'negative';
-        container.appendChild(createCard('4️⃣ XLY/XLP 风险偏好', '可选消费 vs 必需消费 比率', `
+        const ratio = d.snapshot.xlyXlp.ratio;
+        const change = d.snapshot.xlyXlp.change_pct;
+        container.appendChild(createCardWithChart('4️⃣ XLY/XLP 风险偏好', '可选消费 vs 必需消费 比率', `
             <div class="metric-grid">
-                <div class="metric-box"><div class="metric-label">XLY/XLP 比率</div><div class="metric-value">${ratio}</div><div class="sub">越高表示Risk-On越强</div></div>
-                <div class="metric-box"><div class="metric-label">日变化</div><div class="metric-value ${ratioColor}">${changePct > 0 ? '+' : ''}${changePct}%</div></div>
+                <div class="metric-box"><div class="metric-label">当前比率</div><div class="metric-value">${ratio}</div></div>
+                <div class="metric-box"><div class="metric-label">日变化</div><div class="metric-value ${change >= 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}%</div></div>
             </div>
-            <div class="sub">💡 比率上升说明资金倾向可选消费（风险偏好升温），下降则倾向防御。</div>
-        `));
+            <div class="sub">💡 比率上升表示风险偏好升温。</div>
+            <div id="chart-xlyxlp" class="chart-container"></div>
+        `, 'xlyXlp'));
 
-        // 5. Finviz 板块数据（简化展示前8个）
+        // 5. Finviz 板块数据（表格）
         let finvizHtml = `<table class="sector-table"><tr><th>板块</th><th>涨跌幅</th><th>P/E</th><th>PEG</th></tr>`;
         for (let sec of d.finvizSectors.slice(0, 8)) {
             let changeCls = sec.change.includes('+') ? 'positive' : (sec.change.includes('-') ? 'negative' : '');
-            finvizHtml += `<tr>
-                <td>${sec.name}</td>
-                <td class="${changeCls}">${sec.change}</td>
-                <td>${sec.pe}</td>
-                <td>${sec.peg}</td>
-            </tr>`;
+            finvizHtml += `<tr><td>${sec.name}</td><td class="${changeCls}">${sec.change}</td><td>${sec.pe}</td><td>${sec.peg}</td></tr>`;
         }
-        finvizHtml += `</table><div class="sub">数据源：实时涨跌幅来自 yfinance，估值参考 Finviz</div>`;
+        finvizHtml += `</table><div class="sub">实时涨跌幅来自 yfinance，估值参考 Finviz</div>`;
         container.appendChild(createCard('5️⃣ Theme Detector', '板块估值与动能', finvizHtml));
 
-        // 6. 泡沫检测
+        // 6. 泡沫检测（带两个图表）
+        const margin = d.snapshot.marginDebt;
+        const putCall = d.snapshot.putCall;
         let marginHtml = `<div class="metric-grid">
-            <div class="metric-box"><div class="metric-label">保证金债务</div><div class="metric-value negative">${d.bubble.marginDebt.value} 百万</div><div class="sub">${d.bubble.marginDebt.date}</div></div>
-            <div class="metric-box"><div class="metric-label">同比增速</div><div class="metric-value negative">${d.bubble.marginDebt.yoy}</div></div>
+            <div class="metric-box"><div class="metric-label">保证金债务</div><div class="metric-value negative">${margin.value} 百万</div><div class="sub">${margin.date}</div></div>
+            <div class="metric-box"><div class="metric-label">同比增速</div><div class="metric-value negative">${margin.yoy}</div></div>
         </div>`;
         let putHtml = `<div class="metric-grid">
-            <div class="metric-box"><div class="metric-label">Put/Call 比率</div><div class="metric-value ${parseFloat(d.bubble.putCall.ratio) > 0.6 ? 'positive' : 'neutral'}">${d.bubble.putCall.ratio}</div></div>
-            <div class="metric-box"><div class="metric-label">20日均线</div><div class="metric-value">${d.bubble.putCall.ma20}</div></div>
+            <div class="metric-box"><div class="metric-label">Put/Call 比率</div><div class="metric-value">${putCall.ratio}</div></div>
+            <div class="metric-box"><div class="metric-label">20日均线</div><div class="metric-value">${putCall.ma20 || 'N/A'}</div></div>
         </div>`;
-        container.appendChild(createCard('6️⃣ Bubble Detector', '保证金债务 + Put/Call 泡沫检测', marginHtml + putHtml + `<div class="alert">⚠️ 杠杆处于历史极值，期权情绪中性偏谨慎。</div>`));
+        container.appendChild(createCardWithChart('6️⃣ Bubble Detector', '保证金债务 + Put/Call 泡沫检测', marginHtml + putHtml + `<div id="chart-margin" class="chart-container"></div><div id="chart-putcall" class="chart-container"></div>`, 'bubble'));
     }
 
     function createCard(title, subtitle, content) {
         const card = document.createElement('div');
         card.className = 'card';
-        card.innerHTML = `
-            <div class="card-header"><div class="icon">📌</div><div><h3>${title}</h3><div class="sub">${subtitle}</div></div></div>
-            ${content}
-        `;
+        card.innerHTML = `<div class="card-header"><div class="icon">📌</div><div><h3>${title}</h3><div class="sub">${subtitle}</div></div></div>${content}`;
         return card;
     }
 
+    function createCardWithChart(title, subtitle, content, chartType) {
+        const card = createCard(title, subtitle, content);
+        // 图表容器已经在 content 中定义，所以直接返回即可，图表渲染在 renderCharts 中完成
+        return card;
+    }
+
+    function renderCharts(history) {
+        // 1. 市场宽度折线图
+        if (history.breadth && history.breadth.length) {
+            const dates = history.breadth.map(d => d.date);
+            const above50 = history.breadth.map(d => d.above50);
+            const above200 = history.breadth.map(d => d.above200);
+            const chart = echarts.init(document.getElementById('chart-breadth'));
+            chart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['>50日均线比例 (%)', '>200日均线比例 (%)'], textStyle: { color: '#e8edf5' } },
+                xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
+                yAxis: { type: 'value', name: '%', axisLabel: { color: '#e8edf5' } },
+                series: [
+                    { name: '>50日均线比例', type: 'line', data: above50, smooth: true, lineStyle: { color: '#f59e0b' } },
+                    { name: '>200日均线比例', type: 'line', data: above200, smooth: true, lineStyle: { color: '#3b82f6' } }
+                ],
+                backgroundColor: 'transparent'
+            });
+        }
+
+        // 2. 派发日柱状图（显示每日是否为派发日）
+        if (history.distribution && history.distribution.length) {
+            const dates = history.distribution.map(d => d.date);
+            const distVals = history.distribution.map(d => d.is_distribution);
+            const chart = echarts.init(document.getElementById('chart-distribution'));
+            chart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['派发日 (1=是, 0=否)'], textStyle: { color: '#e8edf5' } },
+                xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
+                yAxis: { type: 'value', name: '是否派发日', axisLabel: { color: '#e8edf5' } },
+                series: [{ name: '派发日', type: 'bar', data: distVals, itemStyle: { color: '#ef4444' } }],
+                backgroundColor: 'transparent'
+            });
+        }
+
+        // 3. XLY/XLP 比率折线图
+        if (history.xlyXlp && history.xlyXlp.length) {
+            const dates = history.xlyXlp.map(d => d.date);
+            const ratios = history.xlyXlp.map(d => d.ratio);
+            const chart = echarts.init(document.getElementById('chart-xlyxlp'));
+            chart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['XLY/XLP 比率'], textStyle: { color: '#e8edf5' } },
+                xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
+                yAxis: { type: 'value', name: '比率', axisLabel: { color: '#e8edf5' } },
+                series: [{ name: '比率', type: 'line', data: ratios, smooth: true, lineStyle: { color: '#8b5cf6' } }],
+                backgroundColor: 'transparent'
+            });
+        }
+
+        // 4. 保证金债务折线图（月频）
+        if (history.marginDebt && history.marginDebt.length) {
+            const dates = history.marginDebt.map(d => d.date);
+            const debts = history.marginDebt.map(d => d.margin_debt / 1e6); // 转换为十亿
+            const chart = echarts.init(document.getElementById('chart-margin'));
+            chart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['保证金债务 (十亿美元)'], textStyle: { color: '#e8edf5' } },
+                xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
+                yAxis: { type: 'value', name: '十亿美元', axisLabel: { color: '#e8edf5' } },
+                series: [{ name: '保证金债务', type: 'line', data: debts, smooth: false, lineStyle: { color: '#ef4444' } }],
+                backgroundColor: 'transparent'
+            });
+        }
+
+        // 5. Put/Call 比率折线图
+        if (history.putCall && history.putCall.length) {
+            const dates = history.putCall.map(d => d.date);
+            const ratios = history.putCall.map(d => d.ratio);
+            const chart = echarts.init(document.getElementById('chart-putcall'));
+            chart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['Put/Call 比率'], textStyle: { color: '#e8edf5' } },
+                xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
+                yAxis: { type: 'value', name: '比率', axisLabel: { color: '#e8edf5' } },
+                series: [{ name: '比率', type: 'line', data: ratios, smooth: true, lineStyle: { color: '#06b6d4' } }],
+                backgroundColor: 'transparent'
+            });
+        }
+    }
+
     loadData();
-    setInterval(loadData, 300000); // 每5分钟重新加载
+    setInterval(loadData, 300000);
 </script>
 </body>
 </html>
