@@ -120,35 +120,50 @@ def get_xly_xlp_history(days_back=60):
 # ---------- 5. Finviz 板块（精确涨跌幅）----------
 def get_finviz_sectors():
     """
-    使用 pyfinviz 库直接从 Finviz 网站获取板块涨跌幅数据。
+    直接从 Finviz 官网抓取板块数据（使用 requests + BeautifulSoup）
     """
+    import requests
+    from bs4 import BeautifulSoup
+    url = "https://finviz.com/groups.ashx?g=sector&v=110&o=name"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        from pyfinviz.groups import Groups
-    except ImportError:
-        # 如果库没装，提醒用户安装
-        raise ImportError("pyfinviz 库未安装，请执行 'pip install pyfinviz' 进行安装")
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"Finviz 抓取失败: {e}")
+        # 返回空列表，后续使用静态数据
+        return []
 
-    # 通过抓取 Financial 板块的数据来匹配精准值
-    groups = Groups(group_option=Groups.GroupOption.SECTOR_FINANCIAL, view_option=Groups.ViewOption.PERFORMANCE)
-    # 获取所有板块的数据
-    groups = Groups(view_option=Groups.ViewOption.PERFORMANCE)
-    df = groups.table_df  # 得到包含所有板块详细数据的 DataFrame
-
+    soup = BeautifulSoup(resp.text, "lxml")
+    table = soup.find("table", {"class": "screener_table"})
+    if not table:
+        return []
+    rows = table.find_all("tr")
     result = []
-    # 整理需要展示的字段
-    for _, row in df.iterrows():
-        result.append({
-            "name": row["Name"],
-            "stocks": row["Stocks"],
-            "mktCap": row["Mkt Cap"],
-            "div": row["Dividend"],
-            "pe": row["P/E"],
-            "fwdPe": row["Fwd P/E"],
-            "peg": row["PEG"],
-            "change": row["Change"],          # 直接从 Finviz 获取当日涨跌幅
-            "volume": row["Volume"]
-        })
-
+    # 跳过表头
+    for row in rows[1:]:
+        cells = row.find_all("td")
+        if len(cells) >= 10:
+            name = cells[1].get_text(strip=True)
+            stocks = cells[2].get_text(strip=True)
+            mkt_cap = cells[3].get_text(strip=True)
+            div = cells[4].get_text(strip=True)
+            pe = cells[5].get_text(strip=True)
+            fwd_pe = cells[6].get_text(strip=True)
+            peg = cells[7].get_text(strip=True)
+            change = cells[8].get_text(strip=True)
+            volume = cells[9].get_text(strip=True)
+            result.append({
+                "name": name,
+                "stocks": stocks,
+                "mktCap": mkt_cap,
+                "div": div,
+                "pe": pe,
+                "fwdPe": fwd_pe,
+                "peg": peg,
+                "change": change,
+                "volume": volume
+            })
     return result
 # ---------- 6. 泡沫指标 ----------
 def get_bubble_indicators():
