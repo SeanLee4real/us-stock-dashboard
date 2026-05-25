@@ -1,36 +1,35 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-美股驾驶舱数据更新脚本（最终稳定版）
-无 DataFrame 列间比较，全部使用 Python 列表，避免对齐错误。
+美股驾驶舱数据更新脚本（最终稳定版 - 修复所有 Pandas 问题）
 """
 
 import json
 import time
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import yfinance as yf
+import numpy as np
 
-# ---------- 辅助：安全获取收盘价 ----------
-def get_close(data, idx):
-    """从 yfinance 下载的 DataFrame 中安全获取收盘价"""
-    try:
-        return float(data['Close'].iloc[idx])
-    except:
-        return 0.0
+# ---------- 辅助：安全获取标量值 ----------
+def safe_float(val):
+    """将 pandas 标量或数组转为 float"""
+    if hasattr(val, 'item'):
+        return float(val.item())
+    return float(val)
 
-# ---------- 1. 市场宽度估算（基于 SPY vs RSP 60日收益率差）----------
+# ---------- 1. 市场宽度估算 ----------
 def get_market_breadth_estimate():
     try:
         spy = yf.download("SPY", period="6mo", progress=False)
         rsp = yf.download("RSP", period="6mo", progress=False)
-        if spy.empty or rsp.empty or len(spy) < 60 or len(rsp) < 60:
+        if spy.empty or rsp.empty or len(spy) < 60:
             return {"pct_above_50": 52.0, "pct_above_200": 53.0}
-        spy_start = get_close(spy, 0)
-        spy_end = get_close(spy, -1)
-        rsp_start = get_close(rsp, 0)
-        rsp_end = get_close(rsp, -1)
+        spy_start = safe_float(spy['Close'].iloc[0])
+        spy_end = safe_float(spy['Close'].iloc[-1])
+        rsp_start = safe_float(rsp['Close'].iloc[0])
+        rsp_end = safe_float(rsp['Close'].iloc[-1])
         if spy_start == 0 or rsp_start == 0:
             return {"pct_above_50": 52.0, "pct_above_200": 53.0}
         spy_ret = (spy_end - spy_start) / spy_start * 100
@@ -57,8 +56,8 @@ def get_sector_ytd():
         try:
             data = yf.download(ticker, period="ytd", progress=False)
             if len(data) >= 2:
-                start = get_close(data, 0)
-                end = get_close(data, -1)
+                start = safe_float(data['Close'].iloc[0])
+                end = safe_float(data['Close'].iloc[-1])
                 ytd = (end - start) / start * 100 if start != 0 else 0
                 results.append({"name": ticker, "ytd": round(ytd, 2)})
             else:
@@ -70,16 +69,15 @@ def get_sector_ytd():
     results.sort(key=lambda x: x["ytd"], reverse=True)
     return results
 
-# ---------- 3. 派发日历史（纯列表循环，无 DataFrame 比较）----------
+# ---------- 3. 派发日历史 ----------
 def get_distribution_history(days_back=60):
-    """返回过去 days_back 天的派发日标记列表"""
     spy = yf.download("SPY", period="3mo", progress=False)
     if spy.empty:
         return []
-    # 提取日期、收盘价、成交量到列表
+    # 提取为 numpy 数组，避免 DataFrame 的 tolist 问题
     dates = spy.index.tolist()
-    closes = [float(x) for x in spy['Close'].tolist()]
-    volumes = [int(x) for x in spy['Volume'].tolist()]
+    closes = spy['Close'].values.flatten()
+    volumes = spy['Volume'].values.flatten()
     result = []
     for i in range(1, len(dates)):
         is_dist = 1 if (closes[i] < closes[i-1] and volumes[i] > volumes[i-1]) else 0
@@ -87,22 +85,20 @@ def get_distribution_history(days_back=60):
             "date": dates[i].strftime("%Y-%m-%d"),
             "is_distribution": is_dist
         })
-    # 只返回最近 days_back 天
     return result[-days_back:]
 
-# ---------- 4. XLY/XLP 比率历史（纯列表）----------
+# ---------- 4. XLY/XLP 比率历史 ----------
 def get_xly_xlp_history(days_back=60):
     xly = yf.download("XLY", period="3mo", progress=False)
     xlp = yf.download("XLP", period="3mo", progress=False)
     if xly.empty or xlp.empty:
         return []
-    # 对齐日期（取交集）
     common_dates = sorted(set(xly.index).intersection(set(xlp.index)))
     ratios = []
     prev_ratio = None
     for dt in common_dates:
-        xly_close = float(xly.loc[dt, 'Close'])
-        xlp_close = float(xlp.loc[dt, 'Close'])
+        xly_close = safe_float(xly.loc[dt, 'Close'])
+        xlp_close = safe_float(xlp.loc[dt, 'Close'])
         if xlp_close != 0:
             ratio = xly_close / xlp_close
         else:
@@ -117,7 +113,7 @@ def get_xly_xlp_history(days_back=60):
             prev_ratio = ratio
     return ratios[-days_back:]
 
-# ---------- 5. Finviz 板块数据（实时涨跌幅）----------
+# ---------- 5. Finviz 板块数据 ----------
 def get_finviz_sectors():
     sector_etfs = {
         "科技": "XLK", "金融": "XLF", "医疗保健": "XLV", "可选消费": "XLY",
@@ -144,12 +140,12 @@ def get_finviz_sectors():
         try:
             data = yf.download(ticker, period="2d", progress=False)
             if len(data) >= 2:
-                prev = get_close(data, -2)
-                curr = get_close(data, -1)
+                prev = safe_float(data['Close'].iloc[-2])
+                curr = safe_float(data['Close'].iloc[-1])
                 if prev != 0:
                     change = (curr - prev) / prev * 100
                     change_str = f"{'+' if change >= 0 else ''}{change:.2f}%"
-                vol = int(data['Volume'].iloc[-1]) if len(data) > 0 else 0
+                vol = int(data['Volume'].iloc[-1])
                 if vol > 1e9:
                     vol_str = f"{vol/1e9:.2f}B"
                 elif vol > 1e6:
@@ -172,7 +168,7 @@ def get_finviz_sectors():
         })
     return result
 
-# ---------- 6. 泡沫指标（手动维护）----------
+# ---------- 6. 泡沫指标（手动覆盖）----------
 def get_bubble_indicators():
     margin = {"value": "1,304,281", "yoy": "+53.34%", "date": "2026-04-01"}
     put_call = {"ratio": "0.55", "ma20": "0.51", "date": "2026-05-22"}
@@ -192,7 +188,7 @@ def get_bubble_indicators():
 
 # ---------- 获取所有历史数据 ----------
 def get_all_history():
-    # 市场宽度历史（过去60天每日估算）
+    # 市场宽度历史（过去60天）
     breadth_hist = []
     try:
         spy_all = yf.download("SPY", period="6mo", progress=False)
@@ -204,10 +200,10 @@ def get_all_history():
                 spy_slice = spy_all.loc[:dt]
                 rsp_slice = rsp_all.loc[:dt]
                 if len(spy_slice) >= 60 and len(rsp_slice) >= 60:
-                    spy_start = get_close(spy_slice, 0)
-                    spy_end = get_close(spy_slice, -1)
-                    rsp_start = get_close(rsp_slice, 0)
-                    rsp_end = get_close(rsp_slice, -1)
+                    spy_start = safe_float(spy_slice['Close'].iloc[0])
+                    spy_end = safe_float(spy_slice['Close'].iloc[-1])
+                    rsp_start = safe_float(rsp_slice['Close'].iloc[0])
+                    rsp_end = safe_float(rsp_slice['Close'].iloc[-1])
                     if spy_start != 0 and rsp_start != 0:
                         spy_ret = (spy_end - spy_start) / spy_start * 100
                         rsp_ret = (rsp_end - rsp_start) / rsp_start * 100
@@ -223,13 +219,10 @@ def get_all_history():
                         })
     except Exception as e:
         print(f"生成宽度历史失败: {e}")
-        breadth_hist = []
 
-    # 派发日历史
     dist_hist = get_distribution_history(60)
-    # XLY/XLP 历史
     xly_hist = get_xly_xlp_history(60)
-    # 泡沫历史（手动）
+    # 手动泡沫历史（可选）
     margin_hist = []
     pc_hist = []
     try:
@@ -282,9 +275,8 @@ def main():
     snapshot = get_latest_snapshot(history)
     sector_ytd = get_sector_ytd()
     finviz_data = get_finviz_sectors()
-    bubble = get_bubble_indicators()  # 手动泡沫快照（覆盖）
+    bubble = get_bubble_indicators()
 
-    # 将手动泡沫数据合并到 snapshot
     snapshot["putCall"] = bubble["putCall"]
     snapshot["marginDebt"] = bubble["marginDebt"]
 
