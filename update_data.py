@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-美股驾驶舱数据更新脚本（最终稳定版 - 修复所有 Pandas 问题）
+美股驾驶舱数据更新脚本（最终修复版 - 涨跌幅精准 + 派发日阈值）
 """
 
 import json
@@ -10,26 +10,23 @@ import random
 from datetime import datetime
 
 import yfinance as yf
-import numpy as np
 
-# ---------- 辅助：安全获取标量值 ----------
 def safe_float(val):
-    """将 pandas 标量或数组转为 float"""
     if hasattr(val, 'item'):
         return float(val.item())
     return float(val)
 
-# ---------- 1. 市场宽度估算 ----------
+# ---------- 1. 市场宽度 ----------
 def get_market_breadth_estimate():
     try:
-        spy = yf.download("SPY", period="6mo", progress=False)
-        rsp = yf.download("RSP", period="6mo", progress=False)
+        spy = yf.download("SPY", period="6mo", interval="1d", progress=False, auto_adjust=False)
+        rsp = yf.download("RSP", period="6mo", interval="1d", progress=False, auto_adjust=False)
         if spy.empty or rsp.empty or len(spy) < 60:
             return {"pct_above_50": 52.0, "pct_above_200": 53.0}
-        spy_start = safe_float(spy['Close'].iloc[0])
-        spy_end = safe_float(spy['Close'].iloc[-1])
-        rsp_start = safe_float(rsp['Close'].iloc[0])
-        rsp_end = safe_float(rsp['Close'].iloc[-1])
+        spy_start = safe_float(spy['Adj Close'].iloc[0])
+        spy_end = safe_float(spy['Adj Close'].iloc[-1])
+        rsp_start = safe_float(rsp['Adj Close'].iloc[0])
+        rsp_end = safe_float(rsp['Adj Close'].iloc[-1])
         if spy_start == 0 or rsp_start == 0:
             return {"pct_above_50": 52.0, "pct_above_200": 53.0}
         spy_ret = (spy_end - spy_start) / spy_start * 100
@@ -54,10 +51,10 @@ def get_sector_ytd():
     results = []
     for ticker, name in etfs.items():
         try:
-            data = yf.download(ticker, period="ytd", progress=False)
+            data = yf.download(ticker, period="ytd", interval="1d", progress=False, auto_adjust=False)
             if len(data) >= 2:
-                start = safe_float(data['Close'].iloc[0])
-                end = safe_float(data['Close'].iloc[-1])
+                start = safe_float(data['Adj Close'].iloc[0])
+                end = safe_float(data['Adj Close'].iloc[-1])
                 ytd = (end - start) / start * 100 if start != 0 else 0
                 results.append({"name": ticker, "ytd": round(ytd, 2)})
             else:
@@ -69,36 +66,38 @@ def get_sector_ytd():
     results.sort(key=lambda x: x["ytd"], reverse=True)
     return results
 
-# ---------- 3. 派发日历史 ----------
-def get_distribution_history(days_back=60):
-    spy = yf.download("SPY", period="3mo", progress=False)
+# ---------- 3. 派发日（修正：成交量需放大10%以上）----------
+def get_distribution_history(days_back=60, volume_threshold=1.10):
+    spy = yf.download("SPY", period="3mo", interval="1d", progress=False, auto_adjust=False)
     if spy.empty:
         return []
-    # 提取为 numpy 数组，避免 DataFrame 的 tolist 问题
-    dates = spy.index.tolist()
-    closes = spy['Close'].values.flatten()
+    if 'Adj Close' in spy.columns:
+        closes = spy['Adj Close'].values.flatten()
+    else:
+        closes = spy['Close'].values.flatten()
     volumes = spy['Volume'].values.flatten()
+    dates = spy.index.tolist()
     result = []
     for i in range(1, len(dates)):
-        is_dist = 1 if (closes[i] < closes[i-1] and volumes[i] > volumes[i-1]) else 0
+        is_dist = 1 if (closes[i] < closes[i-1] and volumes[i] > volumes[i-1] * volume_threshold) else 0
         result.append({
             "date": dates[i].strftime("%Y-%m-%d"),
             "is_distribution": is_dist
         })
     return result[-days_back:]
 
-# ---------- 4. XLY/XLP 比率历史 ----------
+# ---------- 4. XLY/XLP 比率 ----------
 def get_xly_xlp_history(days_back=60):
-    xly = yf.download("XLY", period="3mo", progress=False)
-    xlp = yf.download("XLP", period="3mo", progress=False)
+    xly = yf.download("XLY", period="3mo", interval="1d", progress=False, auto_adjust=False)
+    xlp = yf.download("XLP", period="3mo", interval="1d", progress=False, auto_adjust=False)
     if xly.empty or xlp.empty:
         return []
     common_dates = sorted(set(xly.index).intersection(set(xlp.index)))
     ratios = []
     prev_ratio = None
     for dt in common_dates:
-        xly_close = safe_float(xly.loc[dt, 'Close'])
-        xlp_close = safe_float(xlp.loc[dt, 'Close'])
+        xly_close = safe_float(xly.loc[dt, 'Adj Close'])
+        xlp_close = safe_float(xlp.loc[dt, 'Adj Close'])
         if xlp_close != 0:
             ratio = xly_close / xlp_close
         else:
@@ -113,7 +112,7 @@ def get_xly_xlp_history(days_back=60):
             prev_ratio = ratio
     return ratios[-days_back:]
 
-# ---------- 5. Finviz 板块数据 ----------
+# ---------- 5. Finviz 板块（修复涨跌幅计算）----------
 def get_finviz_sectors():
     sector_etfs = {
         "科技": "XLK", "金融": "XLF", "医疗保健": "XLV", "可选消费": "XLY",
@@ -138,14 +137,18 @@ def get_finviz_sectors():
         change_str = "0.00%"
         vol_str = "N/A"
         try:
-            data = yf.download(ticker, period="2d", progress=False)
+            data = yf.download(ticker, period="2d", interval="1d", progress=False, auto_adjust=False)
             if len(data) >= 2:
-                prev = safe_float(data['Close'].iloc[-2])
-                curr = safe_float(data['Close'].iloc[-1])
+                if 'Adj Close' in data.columns:
+                    prev = safe_float(data['Adj Close'].iloc[-2])
+                    curr = safe_float(data['Adj Close'].iloc[-1])
+                else:
+                    prev = safe_float(data['Close'].iloc[-2])
+                    curr = safe_float(data['Close'].iloc[-1])
                 if prev != 0:
                     change = (curr - prev) / prev * 100
                     change_str = f"{'+' if change >= 0 else ''}{change:.2f}%"
-                vol = int(data['Volume'].iloc[-1])
+                vol = int(data['Volume'].iloc[-1]) if not data.empty else 0
                 if vol > 1e9:
                     vol_str = f"{vol/1e9:.2f}B"
                 elif vol > 1e6:
@@ -168,7 +171,7 @@ def get_finviz_sectors():
         })
     return result
 
-# ---------- 6. 泡沫指标（手动覆盖）----------
+# ---------- 6. 泡沫指标 ----------
 def get_bubble_indicators():
     margin = {"value": "1,304,281", "yoy": "+53.34%", "date": "2026-04-01"}
     put_call = {"ratio": "0.55", "ma20": "0.51", "date": "2026-05-22"}
@@ -186,13 +189,13 @@ def get_bubble_indicators():
         pass
     return {"marginDebt": margin, "putCall": put_call}
 
-# ---------- 获取所有历史数据 ----------
+# ---------- 历史数据聚合 ----------
 def get_all_history():
-    # 市场宽度历史（过去60天）
+    # 市场宽度历史
     breadth_hist = []
     try:
-        spy_all = yf.download("SPY", period="6mo", progress=False)
-        rsp_all = yf.download("RSP", period="6mo", progress=False)
+        spy_all = yf.download("SPY", period="6mo", interval="1d", progress=False, auto_adjust=False)
+        rsp_all = yf.download("RSP", period="6mo", interval="1d", progress=False, auto_adjust=False)
         if not spy_all.empty and not rsp_all.empty:
             common_dates = sorted(set(spy_all.index).intersection(set(rsp_all.index)))
             for i in range(max(0, len(common_dates)-60), len(common_dates)):
@@ -200,10 +203,10 @@ def get_all_history():
                 spy_slice = spy_all.loc[:dt]
                 rsp_slice = rsp_all.loc[:dt]
                 if len(spy_slice) >= 60 and len(rsp_slice) >= 60:
-                    spy_start = safe_float(spy_slice['Close'].iloc[0])
-                    spy_end = safe_float(spy_slice['Close'].iloc[-1])
-                    rsp_start = safe_float(rsp_slice['Close'].iloc[0])
-                    rsp_end = safe_float(rsp_slice['Close'].iloc[-1])
+                    spy_start = safe_float(spy_slice['Adj Close'].iloc[0])
+                    spy_end = safe_float(spy_slice['Adj Close'].iloc[-1])
+                    rsp_start = safe_float(rsp_slice['Adj Close'].iloc[0])
+                    rsp_end = safe_float(rsp_slice['Adj Close'].iloc[-1])
                     if spy_start != 0 and rsp_start != 0:
                         spy_ret = (spy_end - spy_start) / spy_start * 100
                         rsp_ret = (rsp_end - rsp_start) / rsp_start * 100
@@ -222,7 +225,6 @@ def get_all_history():
 
     dist_hist = get_distribution_history(60)
     xly_hist = get_xly_xlp_history(60)
-    # 手动泡沫历史（可选）
     margin_hist = []
     pc_hist = []
     try:
@@ -235,7 +237,6 @@ def get_all_history():
             pc_hist = json.load(f)
     except:
         pass
-
     return {
         "breadth": breadth_hist,
         "distribution": dist_hist,
@@ -244,7 +245,6 @@ def get_all_history():
         "putCall": pc_hist
     }
 
-# ---------- 最新快照 ----------
 def get_latest_snapshot(history):
     breadth = history["breadth"][-1] if history["breadth"] else {"above50": 50, "above200": 50}
     dist_list = history["distribution"]
@@ -268,18 +268,15 @@ def get_latest_snapshot(history):
         "marginDebt": {"value": latest_margin["margin_debt"], "yoy": margin_yoy, "date": latest_margin["date"]}
     }
 
-# ---------- 主函数 ----------
 def main():
-    print("🚀 开始更新美股驾驶舱数据（最终稳定版）...")
+    print("🚀 开始更新美股驾驶舱数据（修复版）...")
     history = get_all_history()
     snapshot = get_latest_snapshot(history)
     sector_ytd = get_sector_ytd()
     finviz_data = get_finviz_sectors()
     bubble = get_bubble_indicators()
-
     snapshot["putCall"] = bubble["putCall"]
     snapshot["marginDebt"] = bubble["marginDebt"]
-
     data = {
         "updateTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "snapshot": snapshot,
@@ -289,7 +286,6 @@ def main():
     }
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
     print("🎉 数据已保存到 data.json")
     print(f"市场宽度: 50日={snapshot['breadth']['above50']}%, 200日={snapshot['breadth']['above200']}%")
     print(f"派发日计数: {snapshot['distributionDays']}")
