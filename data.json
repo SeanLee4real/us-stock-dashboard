@@ -1,11 +1,11 @@
 {
-  "updateTime": "2026-05-25 05:31:08",
+  "updateTime": "2026-05-25 05:36:37",
   "snapshot": {
     "breadth": {
       "above50": 54.4,
       "above200": 55.4
     },
-    "distributionDays": 4,
+    "distributionDays": 3,
     "xlyXlp": {
       "ratio": 1.4054,
       "change_pct": 0.24
@@ -496,7 +496,7 @@
     "distribution": [
       {
         "date": "2026-02-27",
-        "is_distribution": 1
+        "is_distribution": 0
       },
       {
         "date": "2026-03-02",
@@ -720,7 +720,7 @@
       },
       {
         "date": "2026-05-19",
-        "is_distribution": 1
+        "is_distribution": 0
       },
       {
         "date": "2026-05-20",
