@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-美股驾驶舱数据更新脚本（稳健版 v2）
-修复了 Series 比较错误，增加重试和错误处理
+美股驾驶舱数据更新脚本（稳健版 v3）
+修复字段名匹配，增加 XLY/XLP 比率
 """
 
 import json
@@ -13,44 +13,28 @@ from datetime import datetime
 import yfinance as yf
 import pandas as pd
 
-# ---------- 辅助函数：安全获取标量 ----------
 def safe_scalar(series, default=0.0):
-    """将 pandas Series 或单个值转换为 Python 标量"""
     if isinstance(series, pd.Series):
-        if len(series) > 0:
-            val = series.iloc[-1]
-        else:
-            val = default
+        val = series.iloc[-1] if len(series) > 0 else default
     elif isinstance(series, (pd.DataFrame, pd.Index)):
-        if len(series) > 0:
-            val = series.iloc[-1] if hasattr(series, 'iloc') else series[-1]
-        else:
-            val = default
+        val = series.iloc[-1] if len(series) > 0 else default
     else:
         val = series
-    # 处理 NaN
-    if pd.isna(val):
-        val = default
-    return float(val)
+    return float(val) if not pd.isna(val) else default
 
-# ---------- 1. 市场宽度（基于 SPY vs RSP 偏离度估算）----------
 def get_market_breadth_estimate():
     try:
         spy = yf.download("SPY", period="3mo", progress=False)
         rsp = yf.download("RSP", period="3mo", progress=False)
         if spy.empty or rsp.empty or len(spy) < 60 or len(rsp) < 60:
             return {"pct_above_50": 52.0, "pct_above_200": 53.0}
-        
-        # 计算最近60日收益率（标量）
         spy_start = safe_scalar(spy["Close"].iloc[0])
         spy_end = safe_scalar(spy["Close"].iloc[-1])
-        spy_ret = (spy_end - spy_start) / spy_start * 100
-        
+        spy_ret = (spy_end - spy_start) / spy_start * 100 if spy_start != 0 else 0
         rsp_start = safe_scalar(rsp["Close"].iloc[0])
         rsp_end = safe_scalar(rsp["Close"].iloc[-1])
-        rsp_ret = (rsp_end - rsp_start) / rsp_start * 100
-        
-        diff = spy_ret - rsp_ret  # 正值表示巨头跑赢，宽度应该降低
+        rsp_ret = (rsp_end - rsp_start) / rsp_start * 100 if rsp_start != 0 else 0
+        diff = spy_ret - rsp_ret
         base_50, base_200 = 55.0, 56.0
         adj = -diff * 1.5
         pct_50 = max(30.0, min(80.0, base_50 + adj))
@@ -60,7 +44,6 @@ def get_market_breadth_estimate():
         print(f"市场宽度估算失败: {e}")
         return {"pct_above_50": 52.0, "pct_above_200": 53.0}
 
-# ---------- 2. 板块 YTD 回报（使用 yfinance，增加重试）----------
 def get_sector_ytd():
     etfs = {
         "XLB": "原材料", "XLC": "通讯服务", "XLE": "能源", "XLF": "金融",
@@ -81,11 +64,9 @@ def get_sector_ytd():
         except Exception as e:
             print(f"获取 {ticker} YTD 失败: {e}")
         results.append({"name": ticker, "ytd": round(ytd_val, 2)})
-    # 按 YTD 降序排序
     results.sort(key=lambda x: x["ytd"], reverse=True)
     return results
 
-# ---------- 3. 派发日（使用 SPY）----------
 def count_distribution_days(days_back=15):
     try:
         spy = yf.download("SPY", period="1mo", progress=False)
@@ -95,36 +76,31 @@ def count_distribution_days(days_back=15):
         spy["CloseDown"] = spy["Close"] < spy["Close"].shift(1)
         spy["VolumeUp"] = spy["Volume"] > spy["VolumePrev"]
         spy["Distribution"] = spy["CloseDown"] & spy["VolumeUp"]
-        recent = spy.iloc[-days_back-1:-1]  # 跳过当天（未完整）
-        count = int(recent["Distribution"].sum())
-        return count
+        recent = spy.iloc[-days_back-1:-1]
+        return int(recent["Distribution"].sum())
     except Exception as e:
         print(f"派发日计算失败: {e}")
         return 0
 
-# ---------- 4. XLY/XLP 涨跌幅 ----------
-def get_xly_xlp_change():
+def get_xly_xlp_ratio():
+    """返回比率 (XLY/XLP) 及日变化百分比"""
     try:
         xly = yf.download("XLY", period="2d", progress=False)
         xlp = yf.download("XLP", period="2d", progress=False)
-        xly_change = 0.0
-        xlp_change = 0.0
-        if len(xly) >= 2:
-            prev = safe_scalar(xly["Close"].iloc[-2])
-            curr = safe_scalar(xly["Close"].iloc[-1])
-            if prev != 0:
-                xly_change = (curr - prev) / prev * 100
-        if len(xlp) >= 2:
-            prev = safe_scalar(xlp["Close"].iloc[-2])
-            curr = safe_scalar(xlp["Close"].iloc[-1])
-            if prev != 0:
-                xlp_change = (curr - prev) / prev * 100
-        return {"xly_change": round(xly_change, 2), "xlp_change": round(xlp_change, 2)}
+        if len(xly) < 2 or len(xlp) < 2:
+            return {"ratio": 1.0, "change_pct": 0.0}
+        xly_close_curr = safe_scalar(xly["Close"].iloc[-1])
+        xly_close_prev = safe_scalar(xly["Close"].iloc[-2])
+        xlp_close_curr = safe_scalar(xlp["Close"].iloc[-1])
+        xlp_close_prev = safe_scalar(xlp["Close"].iloc[-2])
+        ratio_curr = xly_close_curr / xlp_close_curr if xlp_close_curr != 0 else 1.0
+        ratio_prev = xly_close_prev / xlp_close_prev if xlp_close_prev != 0 else 1.0
+        change_pct = (ratio_curr - ratio_prev) / ratio_prev * 100 if ratio_prev != 0 else 0.0
+        return {"ratio": round(ratio_curr, 4), "change_pct": round(change_pct, 2)}
     except Exception as e:
-        print(f"XLY/XLP 获取失败: {e}")
-        return {"xly_change": 0.0, "xlp_change": 0.0}
+        print(f"XLY/XLP 比率获取失败: {e}")
+        return {"ratio": 1.0, "change_pct": 0.0}
 
-# ---------- 5. Finviz 板块数据（实时涨跌幅 + 静态估值）----------
 def get_finviz_sectors():
     sector_etfs = {
         "科技": "XLK", "金融": "XLF", "医疗保健": "XLV", "可选消费": "XLY",
@@ -156,7 +132,6 @@ def get_finviz_sectors():
                 if prev != 0:
                     change = (curr - prev) / prev * 100
                     change_str = f"{'+' if change >= 0 else ''}{change:.2f}%"
-                # 成交量
                 vol = safe_scalar(data["Volume"].iloc[-1], default=0)
                 if vol > 1e9:
                     vol_str = f"{vol/1e9:.2f}B"
@@ -180,11 +155,9 @@ def get_finviz_sectors():
         })
     return result
 
-# ---------- 6. 泡沫指标（支持手动覆盖）----------
 def get_bubble_indicators():
     margin = {"value": "1,304,281", "yoy": "+53.34%", "date": "2026-04-01"}
     put_call = {"ratio": "0.55", "ma20": "0.51", "date": "2026-05-22"}
-    # 尝试加载本地手动更新的 JSON 文件（如果存在）
     try:
         with open("margin_debt.json", "r") as f:
             custom_margin = json.load(f)
@@ -199,29 +172,21 @@ def get_bubble_indicators():
         pass
     return {"marginDebt": margin, "putCall": put_call}
 
-# ---------- 主函数 ----------
 def main():
-    print("🚀 开始更新美股驾驶舱数据（稳健模式 v2）...")
-    
+    print("🚀 开始更新美股驾驶舱数据（稳健模式 v3）...")
     breadth = get_market_breadth_estimate()
-    print(f"✅ 市场宽度估算: 50日={breadth['pct_above_50']}%, 200日={breadth['pct_above_200']}%")
-    
+    print(f"✅ 市场宽度: 50日={breadth['pct_above_50']}%, 200日={breadth['pct_above_200']}%")
     sector_ytd = get_sector_ytd()
     print(f"✅ 板块 YTD 获取 {len(sector_ytd)} 个")
-    
     dist_days = count_distribution_days()
     print(f"✅ 派发日计数: {dist_days}")
-    
-    xly_xlp = get_xly_xlp_change()
-    print(f"✅ XLY: {xly_xlp['xly_change']}% , XLP: {xly_xlp['xlp_change']}%")
-    
+    xly_xlp = get_xly_xlp_ratio()
+    print(f"✅ XLY/XLP 比率: {xly_xlp['ratio']} (日变化 {xly_xlp['change_pct']:+}%)")
     finviz_data = get_finviz_sectors()
     print(f"✅ 板块数据 {len(finviz_data)} 个")
-    
     bubble = get_bubble_indicators()
     print(f"✅ 保证金债务: {bubble['marginDebt']['value']} ({bubble['marginDebt']['date']})")
     print(f"✅ Put/Call: {bubble['putCall']['ratio']} (MA20 {bubble['putCall']['ma20']})")
-    
     data = {
         "updateTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "breadth": breadth,
