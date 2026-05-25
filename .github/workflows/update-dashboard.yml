@@ -1,0 +1,42 @@
+name: Daily Dashboard Update
+
+on:
+  schedule:
+    # 北京时间 07:30 执行（UTC 时间 23:30）
+    - cron: '30 23 * * *'
+  workflow_dispatch:   # 允许手动触发
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 授予 Action 推送代码的权限
+
+    steps:
+      # 1. 拉取当前仓库代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # 3. 安装 Python 依赖
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 yfinance pandas lxml
+
+      # 4. 运行数据更新脚本
+      - name: Run data update script
+        run: python update_data.py
+
+      # 5. 将生成的新 data.json 提交回仓库
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update dashboard data [skip ci]"
+          git push
