@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>美股驾驶舱 · 六维仪表盘（历史图表）</title>
-    <!-- 引入 ECharts -->
+    <title>美股驾驶舱 · 六维仪表盘</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
-        /* 与之前相同的样式，略，需保留 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #0b0f1a; color: #e8edf5; font-family: 'Inter', sans-serif; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 24px; }
@@ -44,12 +42,8 @@
     <div class="update-badge" id="last-update">加载中...</div>
 </div>
 
-<div class="dashboard" id="dashboard">
-    <!-- 动态填充 -->
-</div>
-<div class="footer">
-    ⚡ 数据来源：MacroMicro, Yahoo Finance | 宽度和 Put/Call 来自 MacroMicro 官方数据
-</div>
+<div class="dashboard" id="dashboard"></div>
+<div class="footer">⚡ 数据来源：Yahoo Finance | 市场宽度为估算值 | 泡沫数据需手动更新 JSON</div>
 
 <script>
     let fullData = null;
@@ -71,12 +65,12 @@
         const container = document.getElementById('dashboard');
         container.innerHTML = '';
 
-        // 1. 市场宽度卡片（带图表）
-        const breadth = d.snapshot.breadth;
-        container.appendChild(createCardWithChart('1️⃣ 市场宽度', '标普500成分股占比 · 历史趋势', `
+        // 1. 市场宽度
+        const b = d.snapshot.breadth;
+        container.appendChild(createCardWithChart('1️⃣ 市场宽度 (估算)', '标普500成分股占比 · 历史趋势', `
             <div class="metric-grid">
-                <div class="metric-box"><div class="metric-label">>50日均线</div><div class="metric-value">${breadth.above50 ?? '?'}%</div></div>
-                <div class="metric-box"><div class="metric-label">>200日均线</div><div class="metric-value">${breadth.above200 ?? '?'}%</div></div>
+                <div class="metric-box"><div class="metric-label">>50日均线</div><div class="metric-value">${b.above50 ?? '?'}%</div></div>
+                <div class="metric-box"><div class="metric-label">>200日均线</div><div class="metric-value">${b.above200 ?? '?'}%</div></div>
             </div>
             <div class="alert">⚠️ 宽度低于60%时市场广度较差，指数由少数巨头推动。</div>
             <div id="chart-breadth" class="chart-container"></div>
@@ -86,7 +80,7 @@
         let ytdHtml = `<table class="sector-table"><tr><th>板块</th><th>YTD</th></tr>`;
         for (let s of d.sectorYtd) {
             let cls = s.ytd > 0 ? 'positive' : 'negative';
-            ytdHtml += `<tr><td>${s.name}</td><td class="${cls}">${s.ytd > 0 ? '+' : ''}${s.ytd}%</td></tr>`;
+            ytdHtml += `<tr><td class="sector-name">${s.name}</td><td class="${cls}">${s.ytd > 0 ? '+' : ''}${s.ytd}%</td></tr>`;
         }
         ytdHtml += `</table><div class="sub">💡 科技、能源领涨，房地产滞涨</div>`;
         container.appendChild(createCard('2️⃣ 板块累计回报 (YTD)', 'Sector ETFs 年初至今表现', ytdHtml));
@@ -112,7 +106,7 @@
             <div id="chart-xlyxlp" class="chart-container"></div>
         `, 'xlyXlp'));
 
-        // 5. Finviz 板块数据（表格）
+        // 5. Finviz 板块
         let finvizHtml = `<table class="sector-table"><tr><th>板块</th><th>涨跌幅</th><th>P/E</th><th>PEG</th></tr>`;
         for (let sec of d.finvizSectors.slice(0, 8)) {
             let changeCls = sec.change.includes('+') ? 'positive' : (sec.change.includes('-') ? 'negative' : '');
@@ -121,7 +115,7 @@
         finvizHtml += `</table><div class="sub">实时涨跌幅来自 yfinance，估值参考 Finviz</div>`;
         container.appendChild(createCard('5️⃣ Theme Detector', '板块估值与动能', finvizHtml));
 
-        // 6. 泡沫检测（带两个图表）
+        // 6. 泡沫检测
         const margin = d.snapshot.marginDebt;
         const putCall = d.snapshot.putCall;
         let marginHtml = `<div class="metric-grid">
@@ -130,7 +124,7 @@
         </div>`;
         let putHtml = `<div class="metric-grid">
             <div class="metric-box"><div class="metric-label">Put/Call 比率</div><div class="metric-value">${putCall.ratio}</div></div>
-            <div class="metric-box"><div class="metric-label">20日均线</div><div class="metric-value">${putCall.ma20 || 'N/A'}</div></div>
+            <div class="metric-box"><div class="metric-label">20日均线</div><div class="metric-value">${putCall.ma20}</div></div>
         </div>`;
         container.appendChild(createCardWithChart('6️⃣ Bubble Detector', '保证金债务 + Put/Call 泡沫检测', marginHtml + putHtml + `<div id="chart-margin" class="chart-container"></div><div id="chart-putcall" class="chart-container"></div>`, 'bubble'));
     }
@@ -144,12 +138,11 @@
 
     function createCardWithChart(title, subtitle, content, chartType) {
         const card = createCard(title, subtitle, content);
-        // 图表容器已经在 content 中定义，所以直接返回即可，图表渲染在 renderCharts 中完成
         return card;
     }
 
     function renderCharts(history) {
-        // 1. 市场宽度折线图
+        // 市场宽度
         if (history.breadth && history.breadth.length) {
             const dates = history.breadth.map(d => d.date);
             const above50 = history.breadth.map(d => d.above50);
@@ -157,33 +150,31 @@
             const chart = echarts.init(document.getElementById('chart-breadth'));
             chart.setOption({
                 tooltip: { trigger: 'axis' },
-                legend: { data: ['>50日均线比例 (%)', '>200日均线比例 (%)'], textStyle: { color: '#e8edf5' } },
+                legend: { data: ['>50日均线 (%)', '>200日均线 (%)'], textStyle: { color: '#e8edf5' } },
                 xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
                 yAxis: { type: 'value', name: '%', axisLabel: { color: '#e8edf5' } },
                 series: [
-                    { name: '>50日均线比例', type: 'line', data: above50, smooth: true, lineStyle: { color: '#f59e0b' } },
-                    { name: '>200日均线比例', type: 'line', data: above200, smooth: true, lineStyle: { color: '#3b82f6' } }
+                    { name: '>50日均线', type: 'line', data: above50, smooth: true, lineStyle: { color: '#f59e0b' } },
+                    { name: '>200日均线', type: 'line', data: above200, smooth: true, lineStyle: { color: '#3b82f6' } }
                 ],
                 backgroundColor: 'transparent'
             });
         }
-
-        // 2. 派发日柱状图（显示每日是否为派发日）
+        // 派发日柱状图
         if (history.distribution && history.distribution.length) {
             const dates = history.distribution.map(d => d.date);
-            const distVals = history.distribution.map(d => d.is_distribution);
+            const values = history.distribution.map(d => d.is_distribution);
             const chart = echarts.init(document.getElementById('chart-distribution'));
             chart.setOption({
                 tooltip: { trigger: 'axis' },
-                legend: { data: ['派发日 (1=是, 0=否)'], textStyle: { color: '#e8edf5' } },
+                legend: { data: ['派发日 (1=是)'], textStyle: { color: '#e8edf5' } },
                 xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
                 yAxis: { type: 'value', name: '是否派发日', axisLabel: { color: '#e8edf5' } },
-                series: [{ name: '派发日', type: 'bar', data: distVals, itemStyle: { color: '#ef4444' } }],
+                series: [{ name: '派发日', type: 'bar', data: values, itemStyle: { color: '#ef4444' } }],
                 backgroundColor: 'transparent'
             });
         }
-
-        // 3. XLY/XLP 比率折线图
+        // XLY/XLP
         if (history.xlyXlp && history.xlyXlp.length) {
             const dates = history.xlyXlp.map(d => d.date);
             const ratios = history.xlyXlp.map(d => d.ratio);
@@ -197,23 +188,21 @@
                 backgroundColor: 'transparent'
             });
         }
-
-        // 4. 保证金债务折线图（月频）
+        // 保证金债务（如果有历史）
         if (history.marginDebt && history.marginDebt.length) {
             const dates = history.marginDebt.map(d => d.date);
-            const debts = history.marginDebt.map(d => d.margin_debt / 1e6); // 转换为十亿
+            const debts = history.marginDebt.map(d => d.margin_debt / 1e6);
             const chart = echarts.init(document.getElementById('chart-margin'));
             chart.setOption({
                 tooltip: { trigger: 'axis' },
                 legend: { data: ['保证金债务 (十亿美元)'], textStyle: { color: '#e8edf5' } },
                 xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, color: '#9aa4b8' } },
                 yAxis: { type: 'value', name: '十亿美元', axisLabel: { color: '#e8edf5' } },
-                series: [{ name: '保证金债务', type: 'line', data: debts, smooth: false, lineStyle: { color: '#ef4444' } }],
+                series: [{ name: '保证金债务', type: 'line', data: debts, lineStyle: { color: '#ef4444' } }],
                 backgroundColor: 'transparent'
             });
         }
-
-        // 5. Put/Call 比率折线图
+        // Put/Call
         if (history.putCall && history.putCall.length) {
             const dates = history.putCall.map(d => d.date);
             const ratios = history.putCall.map(d => d.ratio);
