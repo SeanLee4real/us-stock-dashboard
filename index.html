@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>美股驾驶舱 · 六维仪表盘（每日自动更新）</title>
+    <title>美股驾驶舱·六维仪表盘</title>
     <style>
         * {
             margin: 0;
@@ -151,7 +151,7 @@
     <!-- 动态填充 -->
 </div>
 <div class="footer">
-    ⚡ 数据来源：MarketVolume, Finviz, YCharts, Yahoo Finance | 每日运行 update_data.py 刷新
+    ⚡ 数据来源：Yahoo Finance (yfinance) | 每日自动刷新 | 宽度为估算值
 </div>
 
 <script>
@@ -162,7 +162,7 @@
             document.getElementById('last-update').innerHTML = `📅 数据时间：${data.updateTime}`;
             renderDashboard(data);
         } catch(e) {
-            document.getElementById('dashboard').innerHTML = '<div class="card card-full" style="text-align:center;color:#ef4444;">❌ 无法加载 data.json，请先运行 python update_data.py 生成数据文件。</div>';
+            document.getElementById('dashboard').innerHTML = '<div class="card card-full" style="text-align:center;color:#ef4444;">❌ 无法加载 data.json，请确认文件存在或等待 Actions 运行。</div>';
         }
     }
 
@@ -171,10 +171,12 @@
         container.innerHTML = '';
 
         // 1. 市场宽度
+        const width50 = d.breadth.pct_above_50 ?? '?';
+        const width200 = d.breadth.pct_above_200 ?? '?';
         container.appendChild(createCard('1️⃣ 市场宽度', '标普500成分股占比 · 巨头集中风险', `
             <div class="metric-grid">
-                <div class="metric-box"><div class="metric-label">>50日均线</div><div class="metric-value ${d.breadth.above50 < 60 ? 'neutral' : 'positive'}">${d.breadth.above50}%</div></div>
-                <div class="metric-box"><div class="metric-label">>200日均线</div><div class="metric-value ${d.breadth.above200 < 60 ? 'neutral' : 'positive'}">${d.breadth.above200}%</div></div>
+                <div class="metric-box"><div class="metric-label">>50日均线</div><div class="metric-value ${width50 < 60 ? 'neutral' : 'positive'}">${width50}%</div></div>
+                <div class="metric-box"><div class="metric-label">>200日均线</div><div class="metric-value ${width200 < 60 ? 'neutral' : 'positive'}">${width200}%</div></div>
             </div>
             <div class="alert">⚠️ 宽度仍处低位，指数主要由巨头推动，中小盘参与度不足。</div>
         `));
@@ -195,18 +197,19 @@
             <div class="alert ${d.distributionDays>=5 ? 'alert' : ''}">${d.distributionDays < 5 ? '✅ 派发日低于警戒线，机构尚未大规模出货。' : '⚠️ 派发日接近/超过5天，注意回调风险。'}</div>
         `));
 
-        // 4. XLY/XLP
-        let xlyColor = d.xlyXlp.xly_change >= 0 ? 'positive' : 'negative';
-        let xlpColor = d.xlyXlp.xlp_change >= 0 ? 'positive' : 'negative';
-        container.appendChild(createCard('4️⃣ XLY/XLP 风险偏好', '可选消费 vs 必需消费 日涨跌幅', `
+        // 4. XLY/XLP 比率
+        const ratio = d.xlyXlp.ratio ?? 1.0;
+        const changePct = d.xlyXlp.change_pct ?? 0.0;
+        const ratioColor = changePct >= 0 ? 'positive' : 'negative';
+        container.appendChild(createCard('4️⃣ XLY/XLP 风险偏好', '可选消费 vs 必需消费 比率', `
             <div class="metric-grid">
-                <div class="metric-box"><div class="metric-label">XLY (可选)</div><div class="metric-value ${xlyColor}">${d.xlyXlp.xly_change > 0 ? '+' : ''}${d.xlyXlp.xly_change}%</div></div>
-                <div class="metric-box"><div class="metric-label">XLP (必需)</div><div class="metric-value ${xlpColor}">${d.xlyXlp.xlp_change > 0 ? '+' : ''}${d.xlyXlp.xlp_change}%</div></div>
+                <div class="metric-box"><div class="metric-label">XLY/XLP 比率</div><div class="metric-value">${ratio}</div><div class="sub">越高表示Risk-On越强</div></div>
+                <div class="metric-box"><div class="metric-label">日变化</div><div class="metric-value ${ratioColor}">${changePct > 0 ? '+' : ''}${changePct}%</div></div>
             </div>
-            <div class="sub">💡 XLY 强于 XLP 表示 risk-on 情绪回升。</div>
+            <div class="sub">💡 比率上升说明资金倾向可选消费（风险偏好升温），下降则倾向防御。</div>
         `));
 
-        // 5. Finviz 板块数据（简化，只展示前5个关键指标）
+        // 5. Finviz 板块数据（简化展示前8个）
         let finvizHtml = `<table class="sector-table"><tr><th>板块</th><th>涨跌幅</th><th>P/E</th><th>PEG</th></tr>`;
         for (let sec of d.finvizSectors.slice(0, 8)) {
             let changeCls = sec.change.includes('+') ? 'positive' : (sec.change.includes('-') ? 'negative' : '');
@@ -217,7 +220,7 @@
                 <td>${sec.peg}</td>
             </tr>`;
         }
-        finvizHtml += `</table><div class="sub">数据源: Finviz.com</div>`;
+        finvizHtml += `</table><div class="sub">数据源：实时涨跌幅来自 yfinance，估值参考 Finviz</div>`;
         container.appendChild(createCard('5️⃣ Theme Detector', '板块估值与动能', finvizHtml));
 
         // 6. 泡沫检测
@@ -243,8 +246,7 @@
     }
 
     loadData();
-    // 每 5 分钟自动重新加载（便于本地修改json后刷新）
-    setInterval(loadData, 300000);
+    setInterval(loadData, 300000); // 每5分钟重新加载
 </script>
 </body>
 </html>
