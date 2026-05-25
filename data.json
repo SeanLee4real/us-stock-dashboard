@@ -1,5 +1,5 @@
 {
-  "updateTime": "2026-05-25 05:13:40",
+  "updateTime": "2026-05-25 05:31:08",
   "snapshot": {
     "breadth": {
       "above50": 54.4,
@@ -572,11 +572,11 @@
       },
       {
         "date": "2026-03-26",
-        "is_distribution": 1
+        "is_distribution": 0
       },
       {
         "date": "2026-03-27",
-        "is_distribution": 1
+        "is_distribution": 0
       },
       {
         "date": "2026-03-30",
