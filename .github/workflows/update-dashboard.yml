@@ -24,9 +24,8 @@ jobs:
           python-version: '3.9'
 
       # 3. 安装 Python 依赖
-      - name: Install dependencies
-        run: |
-          pip install requests beautifulsoup4 yfinance pandas lxml
+     - name: Install dependencies
+       run: pip install requests beautifulsoup4 yfinance pandas lxml pyfinviz
 
       # 4. 运行数据更新脚本
       - name: Run data update script
