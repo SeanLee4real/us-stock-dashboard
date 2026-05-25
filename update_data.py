@@ -119,63 +119,37 @@ def get_xly_xlp_history(days_back=60):
 
 # ---------- 5. Finviz 板块（精确涨跌幅）----------
 def get_finviz_sectors():
-    sector_etfs = {
-        "科技": "XLK", "金融": "XLF", "医疗保健": "XLV", "可选消费": "XLY",
-        "必需消费": "XLP", "工业": "XLI", "能源": "XLE", "原材料": "XLB",
-        "公用事业": "XLU", "房地产": "XLRE", "通讯服务": "XLC"
-    }
-    static_data = {
-        "科技": {"pe": "38.6", "peg": "1.19", "stocks": "779", "mktCap": "31.1T", "div": "0.54%"},
-        "金融": {"pe": "16.0", "peg": "1.38", "stocks": "1092", "mktCap": "13.9T", "div": "1.97%"},
-        "医疗保健": {"pe": "28.8", "peg": "2.02", "stocks": "1075", "mktCap": "8.33T", "div": "1.60%"},
-        "可选消费": {"pe": "30.4", "peg": "1.56", "stocks": "545", "mktCap": "9.36T", "div": "0.78%"},
-        "必需消费": {"pe": "26.9", "peg": "2.94", "stocks": "246", "mktCap": "4.49T", "div": "2.37%"},
-        "工业": {"pe": "32.0", "peg": "1.67", "stocks": "690", "mktCap": "7.59T", "div": "1.08%"},
-        "能源": {"pe": "19.8", "peg": "1.39", "stocks": "256", "mktCap": "4.74T", "div": "3.43%"},
-        "原材料": {"pe": "22.7", "peg": "1.24", "stocks": "283", "mktCap": "2.88T", "div": "1.94%"},
-        "公用事业": {"pe": "21.0", "peg": "1.79", "stocks": "109", "mktCap": "1.96T", "div": "2.93%"},
-        "房地产": {"pe": "32.7", "peg": "3.34", "stocks": "255", "mktCap": "1.80T", "div": "3.72%"},
-        "通讯服务": {"pe": "39.1", "peg": "2.23", "stocks": "263", "mktCap": "13.7T", "div": "0.50%"},
-    }
-    result = []
-    for name, ticker in sector_etfs.items():
-        change_str = "0.00%"
-        vol_str = "N/A"
-        try:
-            data = yf.download(ticker, period="2d", interval="1d", progress=False, auto_adjust=False)
-            if len(data) >= 2:
-                if 'Adj Close' in data.columns:
-                    prev = safe_float(data['Adj Close'].iloc[-2])
-                    curr = safe_float(data['Adj Close'].iloc[-1])
-                else:
-                    prev = safe_float(data['Close'].iloc[-2])
-                    curr = safe_float(data['Close'].iloc[-1])
-                if prev != 0:
-                    change = (curr - prev) / prev * 100
-                    change_str = f"{'+' if change >= 0 else ''}{change:.2f}%"
-                vol = int(data['Volume'].iloc[-1]) if not data.empty else 0
-                if vol > 1e9:
-                    vol_str = f"{vol/1e9:.2f}B"
-                elif vol > 1e6:
-                    vol_str = f"{vol/1e6:.0f}M"
-                else:
-                    vol_str = str(vol)
-        except Exception as e:
-            print(f"获取 {name} 实时涨跌幅失败: {e}")
-        info = static_data.get(name, {})
-        result.append({
-            "name": name,
-            "stocks": info.get("stocks", "-"),
-            "mktCap": info.get("mktCap", "-"),
-            "div": info.get("div", "-"),
-            "pe": info.get("pe", "-"),
-            "fwdPe": info.get("fwdPe", "-"),
-            "peg": info.get("peg", "-"),
-            "change": change_str,
-            "volume": vol_str
-        })
-    return result
+    """
+    使用 pyfinviz 库直接从 Finviz 网站获取板块涨跌幅数据。
+    """
+    try:
+        from pyfinviz.groups import Groups
+    except ImportError:
+        # 如果库没装，提醒用户安装
+        raise ImportError("pyfinviz 库未安装，请执行 'pip install pyfinviz' 进行安装")
 
+    # 通过抓取 Financial 板块的数据来匹配精准值
+    groups = Groups(group_option=Groups.GroupOption.SECTOR_FINANCIAL, view_option=Groups.ViewOption.PERFORMANCE)
+    # 获取所有板块的数据
+    groups = Groups(view_option=Groups.ViewOption.PERFORMANCE)
+    df = groups.table_df  # 得到包含所有板块详细数据的 DataFrame
+
+    result = []
+    # 整理需要展示的字段
+    for _, row in df.iterrows():
+        result.append({
+            "name": row["Name"],
+            "stocks": row["Stocks"],
+            "mktCap": row["Mkt Cap"],
+            "div": row["Dividend"],
+            "pe": row["P/E"],
+            "fwdPe": row["Fwd P/E"],
+            "peg": row["PEG"],
+            "change": row["Change"],          # 直接从 Finviz 获取当日涨跌幅
+            "volume": row["Volume"]
+        })
+
+    return result
 # ---------- 6. 泡沫指标 ----------
 def get_bubble_indicators():
     margin = {"value": "1,304,281", "yoy": "+53.34%", "date": "2026-04-01"}
